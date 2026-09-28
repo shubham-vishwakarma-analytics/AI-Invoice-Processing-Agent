@@ -559,5 +559,3 @@ The workflow was tested using multiple invoice scenarios.
 ## 👨‍💻 Author
 
 **Shubham Vishwakarma**
-B.Tech Information Technology — 2026
-ALabs Internship — Project 3
