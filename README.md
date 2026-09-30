@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-The **AI Invoice Processing Agent** is an Agentic AI-based business process automation project developed as part of the **ALabs Internship — Project 3: Building AI Agents for Business Process Automation**.
+The **AI Invoice Processing Agent** is an Agentic AI-based business process automation project developed as part of a **Building AI Agents for Business Process Automation** project.
 
 The system automates the invoice processing lifecycle, from receiving an invoice through Gmail to generating a final processing decision.
 
