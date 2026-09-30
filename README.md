@@ -8,7 +8,7 @@
 
 ## Project Presentation
 
-[View the AI Invoice Processing Agent Presentation (PDF)](AI_Invoice_Processing_Agent_Presentation.pdf)
+[View the AI Invoice Processing Agent Presentation (PDF)](Screenshots/AI_Invoice_Processing_Agent_Presentation.pdf)
 
 ---
 
