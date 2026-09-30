@@ -6,11 +6,11 @@
 
 ## Workflow Preview
 
-![AI Invoice Processing Agent Workflow](screenshots/AI_Invoice_Processing_Agent_Workflow.gif)
+![AI Invoice Processing Agent Workflow](Screenshots/AI_Invoice_Processing_Agent_Workflow.gif)
 
 ## Design Overview
 
-![AI Invoice Processing Agent Design Overview](screenshots/AI_Invoice_Processiing_Agent_Workflow_.png)
+![AI Invoice Processing Agent Design Overview](Screenshots/AI_Invoice_Processiing_Agent_Workflow_.png)
 
 ---
 
