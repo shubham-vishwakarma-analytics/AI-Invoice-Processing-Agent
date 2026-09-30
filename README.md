@@ -4,8 +4,6 @@
 
 ---
 
-## Workflow Preview
-
 ![AI Invoice Processing Agent Workflow](Screenshots/AI_Invoice_Processing_Agent_Workflow.gif)
 
 ## Design Overview
