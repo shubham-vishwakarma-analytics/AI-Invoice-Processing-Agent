@@ -1,0 +1,761 @@
+{
+  "name": "AI Invoice Processing Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ],
+          "readStatus": "both"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -576,
+        112
+      ],
+      "id": "45f684c5-1ed0-4433-96a1-e5cafea5674f",
+      "name": "Invoice Email Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "47jV2og0dpT8c8Q5",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {
+          "dataPropertyAttachmentsPrefixName": "attachment_",
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        112
+      ],@
+      "id": "bdf5074b-2daa-4a51-b4b5-2a3a3b237235",
+      "name": "Retrieve Invoice Email",
+      "webhookId": "2a12babc-5ec3-4632-a086-9c8584feda0b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "47jV2og0dpT8c8Q5",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "attachment_0",
+        "name": "={{ $binary.attachment_0.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1YXQNNcNUpgYcTC56Ko1jMfsiC_ny1vvv",
+          "mode": "list",
+          "cachedResultName": "AI Invoice Processing - Invoices",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1YXQNNcNUpgYcTC56Ko1jMfsiC_ny1vvv"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -80,
+        -96
+      ],
+      "id": "ceae0e44-1aa1-4574-be36-ecfe418dfbd5",
+      "name": "Store Original Invoice",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "L8rpvVl1BuUQRpYz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "attachment_0",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -16,
+        112
+      ],
+      "id": "cc6cf1d4-564d-4a3e-821c-0a790d73d83f",
+      "name": "Extract Invoice Text"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an invoice data extraction assistant.\n\nYour task is ONLY to extract information from the invoice text provided below.\n\nExtract these fields:\n- invoice_number\n- vendor_name\n- invoice_date\n- due_date\n- subtotal\n- tax\n- total_amount\n- currency\n- po_number\n\nRules:\n1. Extract only information that is present in the invoice.\n2. Do not invent or guess missing information.\n3. If due date is not explicitly provided, return an empty string.\n4. If the invoice uses ₹ or Indian Rupees, return currency as \"INR\".\n5. Return subtotal, tax, and total_amount as numbers only, without currency symbols or commas.\n6. Convert invoice_date to YYYY-MM-DD format.\n7. Keep the PO number exactly as written.\n8. Do not perform approval, rejection, or business validation. Those steps will be handled later by the n8n workflow.\n\nInvoice text:\n\n{{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        256,
+        112
+      ],
+      "id": "0b7d602b-7e78-4479-a052-81303e8e911c",
+      "name": "AI Invoice Data Extraction"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        304
+      ],
+      "id": "aa762058-d6e6-45f1-8c33-a8648ae676a2",
+      "name": "Gemini Invoice Extraction Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n    \"invoice_number\": \"INV-1001\",\n    \"vendor_name\": \"ABC Supplies Pvt Ltd\",\n    \"invoice_date\": \"2026-09-25\",\n    \"due_date\": \"\",\n    \"subtotal\": 40000,\n    \"tax\": 5000,\n    \"total_amount\": 45000,\n    \"currency\": \"INR\",\n    \"po_number\": \"PO-501\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        320
+      ],
+      "id": "0eecbe22-a324-40e3-89fe-dfbdba44622e",
+      "name": "Invoice JSON Output Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoice = $json.output;\n\nconst issues = [];\n\n// Required field validation\nif (!invoice.invoice_number) {\n    issues.push(\"Missing invoice number\");\n}\n\nif (!invoice.vendor_name) {\n    issues.push(\"Missing vendor name\");\n}\n\nif (!invoice.invoice_date) {\n    issues.push(\"Missing invoice date\");\n}\n\nif (!invoice.po_number) {\n    issues.push(\"Missing PO number\");\n}\n\nif (invoice.total_amount === undefined || invoice.total_amount === null) {\n    issues.push(\"Missing total amount\");\n}\n\nif (invoice.subtotal === undefined || invoice.subtotal === null) {\n    issues.push(\"Missing subtotal\");\n}\n\nif (invoice.tax === undefined || invoice.tax === null) {\n    issues.push(\"Missing tax\");\n}\n\n// Amount validation\nconst subtotal = Number(invoice.subtotal);\nconst tax = Number(invoice.tax);\nconst total = Number(invoice.total_amount);\n\nif (\n    !Number.isNaN(subtotal) &&\n    !Number.isNaN(tax) &&\n    !Number.isNaN(total)\n) {\n    const calculatedTotal = subtotal + tax;\n\n    if (Math.abs(calculatedTotal - total) > 0.01) {\n        issues.push(\n            `Amount mismatch: subtotal + tax = ${calculatedTotal}, but invoice total = ${total}`\n        );\n    }\n}\n\n// Final validation status\nconst validationStatus = issues.length === 0\n    ? \"VALID\"\n    : \"INVALID\";\n\nreturn [\n    {\n        json: {\n            invoice_number: invoice.invoice_number || \"\",\n            vendor_name: invoice.vendor_name || \"\",\n            invoice_date: invoice.invoice_date || \"\",\n            due_date: invoice.due_date || \"\",\n            po_number: invoice.po_number || \"\",\n            subtotal: subtotal,\n            tax: tax,\n            total_amount: total,\n            currency: invoice.currency || \"\",\n            validation_status: validationStatus,\n            validation_issues: issues.join(\"; \")\n        }\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        112
+      ],
+      "id": "1a86aaf7-1784-4934-acfd-de107a480374",
+      "name": "Invoice Data Validation"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg",
+          "mode": "list",
+          "cachedResultName": "AI Invoice Processing Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1351587612,
+          "mode": "list",
+          "cachedResultName": "Invoice Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg/edit#gid=1351587612"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Invoice_Number",
+              "lookupValue": "={{ $('Invoice Data Validation').first().json.invoice_number }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        928,
+        112
+      ],
+      "id": "d7eea545-7107-40fb-b211-09de3bb232c9",
+      "name": "Check Duplicate Invoice",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QaiSAS3beZTXNfeF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoiceNumber = $('Invoice Data Validation').first().json.invoice_number;\n\n// Get the result returned by Google Sheets\nconst sheetResult = $input.first().json;\n\n// If Google Sheets returned an empty item,\n// the invoice does not already exist.\nconst isDuplicate = Object.keys(sheetResult).length > 0;\n\nreturn [\n    {\n        json: {\n            invoice_number: invoiceNumber,\n            is_duplicate: isDuplicate,\n            duplicate_status: isDuplicate ? \"DUPLICATE\" : \"NEW\"\n        }\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        112
+      ],
+      "id": "452c35d1-edad-499e-acb0-10320c327b5e",
+      "name": "Duplicate Invoice Detection"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg",
+          "mode": "list",
+          "cachedResultName": "AI Invoice Processing Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 722636986,
+          "mode": "list",
+          "cachedResultName": "PO_Master",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg/edit#gid=722636986"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "PO_Number",
+              "lookupValue": "={{ $('Invoice Data Validation').first().json.po_number }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1488,
+        112
+      ],
+      "id": "e798139b-b200-48b2-99a0-0674b24b49c7",
+      "name": "Retrieve PO Details",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QaiSAS3beZTXNfeF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoice = $('Invoice Data Validation').first().json;\nconst po = $input.first().json;\n\nconst issues = [];\n\n// Vendor validation\nconst invoiceVendor = invoice.vendor_name.trim().toLowerCase();\nconst poVendor = (po.Vendor_Name || \"\").trim().toLowerCase();\n\nif (!poVendor) {\n    issues.push(\"PO not found\");\n} else if (invoiceVendor !== poVendor) {\n    issues.push(\n        `Vendor mismatch: Invoice vendor is \"${invoice.vendor_name}\" but PO vendor is \"${po.Vendor_Name}\"`\n    );\n}\n\n// PO amount validation\nconst invoiceAmount = Number(invoice.total_amount);\nconst poAmount = Number(po.PO_Amount);\n\nif (!Number.isNaN(invoiceAmount) && !Number.isNaN(poAmount)) {\n    if (Math.abs(invoiceAmount - poAmount) > 0.01) {\n        issues.push(\n            `Amount mismatch: Invoice total is ${invoiceAmount}, but PO amount is ${poAmount}`\n        );\n    }\n}\n\n// Currency validation\nif (\n    invoice.currency &&\n    po.Currency &&\n    invoice.currency.toUpperCase() !== po.Currency.toUpperCase()\n) {\n    issues.push(\n        `Currency mismatch: Invoice currency is ${invoice.currency}, but PO currency is ${po.Currency}`\n    );\n}\n\nconst vendorMatch =\n    poVendor !== \"\" && invoiceVendor === poVendor;\n\nconst amountMatch =\n    !Number.isNaN(invoiceAmount) &&\n    !Number.isNaN(poAmount) &&\n    Math.abs(invoiceAmount - poAmount) <= 0.01;\n\nconst currencyMatch =\n    invoice.currency &&\n    po.Currency &&\n    invoice.currency.toUpperCase() === po.Currency.toUpperCase();\n\nconst poMatchStatus =\n    vendorMatch && amountMatch && currencyMatch\n        ? \"MATCHED\"\n        : \"MISMATCH\";\n\nreturn [\n    {\n        json: {\n            invoice_number: invoice.invoice_number,\n            vendor_name: invoice.vendor_name,\n            po_number: invoice.po_number,\n            invoice_amount: invoiceAmount,\n            po_amount: poAmount,\n            invoice_currency: invoice.currency,\n            po_currency: po.Currency,\n            vendor_match: vendorMatch,\n            amount_match: amountMatch,\n            currency_match: currencyMatch,\n            po_match_status: poMatchStatus,\n            po_status: po.Status || \"\",\n            po_validation_issues: issues.join(\"; \")\n        }\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        112
+      ],
+      "id": "e8e921da-3907-4018-b1ec-a29f56cbcdd0",
+      "name": "PO & Vendor Validation",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoice = $('Invoice Data Validation').first().json;\nconst duplicate = $('Duplicate Invoice Detection').first().json;\nconst po = $('PO & Vendor Validation').first().json;\n\nlet decision = \"\";\nlet reason = \"\";\n\n// 1. Duplicate check\nif (duplicate.is_duplicate === true) {\n    decision = \"REJECTED\";\n    reason = \"Duplicate invoice detected.\";\n}\n\n// 2. Invoice validation\nelse if (invoice.validation_status !== \"VALID\") {\n    decision = \"HUMAN REVIEW\";\n    reason = invoice.validation_issues || \"Invoice validation failed.\";\n}\n\n// 3. PO matching\nelse if (po.po_match_status !== \"MATCHED\") {\n    decision = \"HUMAN REVIEW\";\n    reason = po.po_validation_issues || \"PO matching failed.\";\n}\n\n// 4. PO status\nelse if (po.po_status !== \"Approved\") {\n    decision = \"HUMAN REVIEW\";\n    reason = `PO status is \"${po.po_status}\", which requires review.`;\n}\n\n// 5. All checks passed\nelse {\n    decision = \"APPROVED\";\n    reason = \"Invoice passed validation, duplicate check, vendor matching, amount matching, currency matching, and PO approval checks.\";\n}\n\nreturn [\n    {\n        json: {\n            invoice_number: invoice.invoice_number,\n            vendor_name: invoice.vendor_name,\n            invoice_date: invoice.invoice_date,\n            due_date: invoice.due_date,\n            po_number: invoice.po_number,\n            subtotal: invoice.subtotal,\n            tax: invoice.tax,\n            total_amount: invoice.total_amount,\n            currency: invoice.currency,\n\n            validation_status: invoice.validation_status,\n            validation_issues: invoice.validation_issues,\n\n            duplicate_status: duplicate.duplicate_status,\n\n            po_match_status: po.po_match_status,\n            vendor_match: po.vendor_match,\n            amount_match: po.amount_match,\n            currency_match: po.currency_match,\n            po_status: po.po_status,\n\n            decision: decision,\n            reason: reason,\n\n            processed_date: new Date().toISOString()\n        }\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        112
+      ],
+      "id": "62086f2d-c779-42b6-b1f7-2aabcbbdf7e9",
+      "name": "Invoice Decision Engine",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg",
+          "mode": "list",
+          "cachedResultName": "AI Invoice Processing Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1351587612,
+          "mode": "list",
+          "cachedResultName": "Invoice Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1g_6H42w9DsrMjz99Ts77a66G7hXEqsuJxp3pIUZSndg/edit#gid=1351587612"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Invoice_Number": "={{ $json.invoice_number }}",
+            "Vendor_Name": "={{ $json.vendor_name }}",
+            "Invoice_Date": "={{ $json.invoice_date }}",
+            "Due_Date": "={{ $json.due_date }}",
+            "PO_Number": "={{ $json.po_number }}",
+            "Subtotal": "={{ $json.subtotal }}",
+            "Tax": "={{ $json.tax }}",
+            "Total_Amount": "={{ $json.total_amount }}",
+            "Currency": "={{ $json.currency }}",
+            "Validation_Status": "={{ $json.validation_status }}",
+            "Validation_Issues": "={{ $json.validation_issues }}",
+            "PO_Match_Status": "={{ $json.po_match_status }}",
+            "Decision": "={{ $json.decision }}",
+            "Reason": "={{ $json.reason }}",
+            "Processed_Date": "={{ $json.processed_date }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice_Number",
+              "displayName": "Invoice_Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Vendor_Name",
+              "displayName": "Vendor_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice_Date",
+              "displayName": "Invoice_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Due_Date",
+              "displayName": "Due_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PO_Number",
+              "displayName": "PO_Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Subtotal",
+              "displayName": "Subtotal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tax",
+              "displayName": "Tax",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total_Amount",
+              "displayName": "Total_Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Currency",
+              "displayName": "Currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Validation_Status",
+              "displayName": "Validation_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Validation_Issues",
+              "displayName": "Validation_Issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PO_Match_Status",
+              "displayName": "PO_Match_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Decision",
+              "displayName": "Decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Processed_Date",
+              "displayName": "Processed_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2400,
+        112
+      ],
+      "id": "549051e3-99d8-4932-a287-9e71e58574b7",
+      "name": "Log Invoice Result",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QaiSAS3beZTXNfeF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bef3530a-b8fc-4026-a7cd-5f96f4d015d9",
+              "leftValue": "={{ $json.decision.trim() }}",
+              "rightValue": "HUMAN REVIEW",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2720,
+        112
+      ],
+      "id": "a6dcf629-75fc-4fd2-bb74-47e80215692c",
+      "name": "Route Invoice Decision"
+    },
+    {
+      "parameters": {
+        "sendTo": "shubham@gmail.com",
+        "subject": "=⚠️ Invoice {{ $json.invoice_number }} - HUMAN REVIEW REQUIRED",
+        "emailType": "text",
+        "message": "=Hello,  An invoice requires human review.  Invoice Number: {{ $json.invoice_number }} Vendor: {{ $json.vendor_name }} Invoice Date: {{ $json.invoice_date }} PO Number: {{ $json.po_number }}  Invoice Amount: ₹{{ $json.total_amount }} Currency: {{ $json.currency }}  Validation Status: {{ $json.validation_status }} Duplicate Status: {{ $json.duplicate_status }} PO Match Status: {{ $json.po_match_status }}  Decision: {{ $json.decision }}  Reason: {{ $json.reason }}  Validation Issues: {{ $json.validation_issues }}  Please review this invoice manually before taking further action.  This notification was generated automatically by the AI Invoice Processing Agent.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3136,
+        -32
+      ],
+      "id": "a9911c15-6df6-4bce-b314-916fc7ea957e",
+      "name": "Send Human Review Alert",
+      "webhookId": "95f2362b-389b-47c6-a3ac-f2821654286d",
+      "alwaysOutputData": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "47jV2og0dpT8c8Q5",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "shubham@gmail.com",
+        "subject": "=Invoice {{ $json.Invoice_Number }} - {{ $json.Decision }}",
+        "emailType": "text",
+        "message": "=Hello,\n\nThe invoice processing workflow has completed successfully.\n\nInvoice Number: {{ $json.Invoice_Number }}\nVendor: {{ $json.Vendor_Name }}\nInvoice Date: {{ $json.Invoice_Date }}\nPO Number: {{ $json.PO_Number }}\n\nSubtotal: ₹{{ $json.Subtotal }}\nTax: ₹{{ $json.Tax }}\nTotal Amount: ₹{{ $json.Total_Amount }}\nCurrency: {{ $json.Currency }}\n\nValidation Status: {{ $json.Validation_Status }}\nPO Match Status: {{ $json.PO_Match_Status }}\n\nDecision: {{ $json.Decision }}\n\nReason:\n{{ $json.Reason }}\n\nProcessed Date:\n{{ $json.Processed_Date }}\n\nThis notification was generated automatically by the AI Invoice Processing Agent.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3168,
+        256
+      ],
+      "id": "de2c6520-ad89-42ae-acd5-85680c8232f3",
+      "name": "Send Processing Notification",
+      "webhookId": "02d3996c-52af-44e3-adb3-168cf53692e6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "47jV2og0dpT8c8Q5",
+          "name": "Gmail account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Invoice Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Invoice Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Invoice Email": {
+      "main": [
+        [
+          {
+            "node": "Store Original Invoice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Invoice Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Original Invoice": {
+      "main": [
+        []
+      ]
+    },
+    "Extract Invoice Text": {
+      "main": [
+        [
+          {
+            "node": "AI Invoice Data Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Invoice Data Extraction": {
+      "main": [
+        [
+          {
+            "node": "Invoice Data Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Invoice Extraction Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Invoice Data Extraction",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice JSON Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Invoice Data Extraction",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice Data Validation": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Duplicate Invoice": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Invoice Detection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Invoice Detection": {
+      "main": [
+        [
+          {
+            "node": "Retrieve PO Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve PO Details": {
+      "main": [
+        [
+          {
+            "node": "PO & Vendor Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PO & Vendor Validation": {
+      "main": [
+        [
+          {
+            "node": "Invoice Decision Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice Decision Engine": {
+      "main": [
+        [
+          {
+            "node": "Log Invoice Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Invoice Result": {
+      "main": [
+        [
+          {
+            "node": "Route Invoice Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Invoice Decision": {
+      "main": [
+        [
+          {
+            "node": "Send Human Review Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Processing Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bd4bdf9d-3cb6-4896-9482-e6dc5a45d1f0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3b6f733bc57aa5a4d4a0813f61af4b2769cc831810774003b80879478b69b3f9"
+  },
+  "nodeGroups": [],
+  "id": "Brmc1iaGvPQR9mci",
+  "tags": []
+}
