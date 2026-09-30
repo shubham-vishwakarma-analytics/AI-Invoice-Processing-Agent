@@ -1,14 +1,18 @@
-# AI Invoice Processing Agent
-
->The AI Invoice Processing Agent is an Agentic AI-based business process automation project developed as part of the Building AI Agents for Business Process Automation project.
-
 ---
 
-![AI Invoice Processing Agent Workflow](Screenshots/AI_Invoice_Processing_Agent_Workflow_.gif)
+![AI Invoice Processing Agent Workflow](Screenshots/AI_Invoice_Processing_Agent_Workflow.gif)
 
 ## Design Overview
 
 ![AI Invoice Processing Agent Design Overview](Screenshots/AI_Invoice_Processiing_Agent_Workflow_.png)
+
+---
+
+## Project Presentation
+
+[View the AI Invoice Processing Agent Presentation (PDF)](Screenshots/AI_Invoice_Processing_Agent_Presentation.pdf)
+
+---
 
 ---
 
