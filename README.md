@@ -1,3 +1,5 @@
+# AI Invoice Processing Agent
+
 ![AI Invoice Processing Agent Workflow](Screenshots/AI_Invoice_Processing_Agent_Workflow.gif)
 
 ## Design Overview
@@ -345,10 +347,6 @@ Result = MATCHED
 If a mismatch is detected, the invoice is routed to **Human Review**.
 
 ---
-
-## Workflow Preview
-
-![AI Invoice Processing Agent Workflow](screenshots/AI_Invoice_Processing_Agent_Workflow.gif)
 
 ## Decision Engine
 
